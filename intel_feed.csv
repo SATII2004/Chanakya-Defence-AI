@@ -1,0 +1,5 @@
+timestamp,sector,report,priority
+2025-12-24 10:00:00,Northern,Routine patrol completed at sector 4. No activity detected.,Low
+2025-12-24 10:15:00,Western,Supply trucks delayed due to fog. ETA 1400 hours.,Medium
+2025-12-24 10:30:00,Eastern,Radar maintenance scheduled for 1600 hours.,Low
+2025-12-24 10:45:00,Northern,CRITICAL ALERT: ENEMY DRONE SQUADRON DETECTED IN SECTOR 4. MOBILIZE AIR DEFENCE.,High
