@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 import requests
 import sys
 
@@ -9,12 +9,11 @@ GEMINI_API_KEY = "AIzaSyBifE-kpqARHpIVAKK_bzCk-DmkU4NAY8Y"
 # This is where Chanakya (your other script) lives
 CHANAKYA_URL = "http://0.0.0.0:8000/v1/retrieve"
 
-# --- SETUP GEMINI ---
+# --- SETUP GEMINI (NEW LIBRARY) ---
 try:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    client = genai.Client(api_key=GEMINI_API_KEY)
 except Exception as e:
-    print(f"Error connecting to Gemini: {e}")
+    print(f"Error initializing Gemini Client: {e}")
     sys.exit(1)
 
 def get_intel_from_chanakya(query):
@@ -54,7 +53,11 @@ def ask_commander(user_query):
 
     # 3. Get Answer from Gemini
     try:
-        response = model.generate_content(system_prompt)
+        # We use the new 'gemini-1.5-flash' model which is fast and free
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=system_prompt
+        )
         return response.text
     except Exception as e:
         return f"Comms Link Failure (Gemini Error): {e}"
