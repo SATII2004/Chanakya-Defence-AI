@@ -1,193 +1,199 @@
 import streamlit as st
 import pandas as pd
 import requests
-import time
-import pydeck as pdk  # We use PyDeck for 3D Satellite Maps
+import pydeck as pdk
 from google import genai
+import os
+from dotenv import load_dotenv
 
 # --- CONFIGURATION ---
-GEMINI_API_KEY = "AIzaSyAaXdQRCYWeiUw-HklkbmE_F9SsTpFxjGw"
+# Load environment variables from .env file
+load_dotenv()
+
+# Get API key from environment (NEVER hardcode it!)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Security check
+if not GEMINI_API_KEY:
+    st.error("⚠️ CRITICAL: GEMINI_API_KEY not found in .env file!")
+    st.info("Create a .env file with: GEMINI_API_KEY=your_key_here")
+    st.stop()
+
 CHANAKYA_URL = "http://0.0.0.0:8000/v1/retrieve"
 CSV_FILE = "intel_feed.csv"
 
-# --- PAGE SETUP ---
-st.set_page_config(
-    page_title="Chanakya Defence Grid (v2.0)",
-    page_icon="🇮🇳",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Official India Map (DataMeet - Survey of India compliant)
+INDIA_GEOJSON = "https://raw.githubusercontent.com/datameet/maps/master/Country/india-composite.geojson"
 
-# Custom Military Theme CSS
+st.set_page_config(page_title="CDS Strategic Command", page_icon="🇮🇳", layout="wide")
+
+# --- MILITARY STYLING ---
 st.markdown("""
 <style>
-    .stApp { background-color: #050505; color: #00ff41; font-family: 'Courier New'; }
-    .stButton>button { border: 1px solid #00ff41; background-color: #000; color: #00ff41; border-radius: 0px; }
-    .stButton>button:hover { background-color: #00ff41; color: #000; }
-    .report-box { border-left: 3px solid #00ff41; background: #0a0a0a; padding: 10px; margin-bottom: 10px; }
-    .critical { border-left: 3px solid #ff0000; background: #1a0505; color: #ff9999; }
+    .stApp { background-color: #000500; color: #00ff41; font-family: 'Courier New'; }
+    .report-box { border-left: 3px solid #00ff41; background: #001100; padding: 10px; margin-bottom: 5px; }
+    .critical { border-left: 3px solid #ff0000; background: #220000; color: #ffaaaa; padding: 10px; margin-bottom: 5px; }
+    div.stButton > button { background: #002200; color: #00ff41; border: 1px solid #00ff41; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- GEMINI SETUP ---
-if "AIza" not in GEMINI_API_KEY:
-    st.error("⚠️ CRITICAL: API KEY MISSING.")
-    st.stop()
-
+# --- 1. ROBUST AI SETUP (Auto-Detect Logic Restored) ---
 @st.cache_resource
-def setup_client():
-    return genai.Client(api_key=GEMINI_API_KEY)
-
-client = setup_client()
-
-# --- INTELLIGENCE FUNCTIONS ---
-def get_intel_from_chanakya(query):
+def setup_gemini():
+    """Auto-detects the best available Gemini model for your Key."""
     try:
-        response = requests.post(CHANAKYA_URL, json={"query": query, "k": 5})
-        data = response.json()
-        if not data: return []
-        return [item['text'] for item in data]
-    except:
-        return []
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        # Scan for available models
+        try:
+            models = list(client.models.list())
+        except Exception:
+            return client, "gemini-1.5-flash" # Fallback if list fails
 
-def ask_commander_strategy(query, context):
-    system_prompt = f"""
-    You are General Chanakya, Chief Strategist for the Indian Army.
-    
-    LIVE INTEL: {context}
-    USER QUERY: {query}
-    
-    MISSION: Provide a strategic assessment. 
-    TONE: Professional, Decisive, Indian Army protocols. 
-    Start with "GENERAL:"
-    """
-    try:
-        # Auto-select best model logic is assumed here or generic fallback
-        res = client.models.generate_content(model="gemini-1.5-flash", contents=system_prompt)
-        return res.text
+        # Priority: Flash > Pro
+        for m in models:
+            name = m.name.lower()
+            if "flash" in name and "vision" not in name and "8b" not in name:
+                # Return the clean name (e.g., "gemini-1.5-flash")
+                return client, m.name.replace("models/", "")
+        
+        return client, "gemini-1.5-flash" # Fallback
     except Exception as e:
-        return f"Encrypted Line Failure: {e}"
+        return None, str(e)
 
-# --- DYNAMIC GEO-CODING (The "Real World" Magic) ---
-# In a real system, we would use an internal Army GIS database.
-# For the hackathon, we map key sectors to J&K coordinates.
-SECTOR_COORDS = {
-    "Northern": [34.5, 76.0],     # General Ladakh/Kargil area
-    "Kargil": [34.55, 76.13],
-    "Dras": [34.42, 75.76],
-    "Uri": [34.08, 74.03],
-    "Poonch": [33.77, 74.09],
-    "Kupwara": [34.53, 74.25],
-    "Siachen": [35.4, 77.1],
-    "Galwan": [34.7, 78.2],
-    "Sector 4": [34.1, 74.8]      # Placeholder
-}
+client, active_model = setup_gemini()
 
-def extract_threat_locations(df):
-    """Reads the CSV and creates map points based on keywords."""
-    map_points = []
-    
-    for index, row in df.iterrows():
-        text = row['report'] + " " + row['sector']
-        lat, lon = 34.08, 74.79 # Default (Srinagar)
-        found = False
-        
-        # Check if any known sector is in the report
-        for sector, coords in SECTOR_COORDS.items():
-            if sector.lower() in text.lower():
-                lat, lon = coords
-                found = True
-                break
-        
-        # Color code based on priority
-        color = [255, 0, 0, 200] if row['priority'] == 'High' else [0, 255, 65, 200] # Red or Green
-        radius = 15000 if row['priority'] == 'High' else 5000
-        
-        map_points.append({
-            "lat": lat, "lon": lon, "type": row['priority'], 
-            "color": color, "radius": radius, "info": row['report']
-        })
-    
-    return pd.DataFrame(map_points)
+# --- LOGIC ---
+def get_intel(query):
+    try:
+        res = requests.post(CHANAKYA_URL, json={"query": query, "k": 5})
+        return [i['text'] for i in res.json()] if res.json() else []
+    except: return []
 
-# --- DASHBOARD LAYOUT ---
+def ask_cds(query, context):
+    prompt = f"ROLE: Chief of Defence Staff (India). INTEL: {context}. QUERY: {query}. ACTION: Strategic Brief."
+    try: 
+        # Using the auto-detected model
+        return client.models.generate_content(model=active_model, contents=prompt).text
+    except Exception as e: 
+        # This will now show the REAL error message
+        return f"⚠️ SECURE LINE ERROR: {e}"
 
-st.title("🇮🇳 INTEGRATED DEFENCE STAFF: CHANAKYA")
-st.caption("CLASSIFIED // EYES ONLY // REAL-TIME SATELLITE LINK")
+# --- STRATEGIC ASSETS ---
+COMMANDS = [
+    # ARMY
+    {"name": "Northern Comd", "lat": 32.93, "lon": 75.14, "color": [255, 200, 0], "type": "Army"}, 
+    {"name": "Western Comd", "lat": 30.73, "lon": 76.78, "color": [255, 200, 0], "type": "Army"},
+    {"name": "South Western", "lat": 26.91, "lon": 75.78, "color": [255, 200, 0], "type": "Army"},
+    {"name": "Southern Comd", "lat": 18.52, "lon": 73.85, "color": [255, 200, 0], "type": "Army"},
+    {"name": "Central Comd", "lat": 26.84, "lon": 80.94, "color": [255, 200, 0], "type": "Army"},
+    {"name": "Eastern Comd", "lat": 22.57, "lon": 88.36, "color": [255, 200, 0], "type": "Army"},
+    {"name": "Training Comd", "lat": 31.10, "lon": 77.17, "color": [255, 200, 0], "type": "Army"},
+    # AIR FORCE
+    {"name": "Western Air", "lat": 28.58, "lon": 77.20, "color": [0, 200, 255], "type": "IAF"},
+    {"name": "South Western Air", "lat": 23.21, "lon": 72.63, "color": [0, 200, 255], "type": "IAF"},
+    {"name": "Central Air", "lat": 25.43, "lon": 81.84, "color": [0, 200, 255], "type": "IAF"},
+    {"name": "Eastern Air", "lat": 25.57, "lon": 91.89, "color": [0, 200, 255], "type": "IAF"},
+    {"name": "Southern Air", "lat": 8.52, "lon": 76.93, "color": [0, 200, 255], "type": "IAF"},
+    {"name": "Maint. Comd", "lat": 21.14, "lon": 79.08, "color": [0, 200, 255], "type": "IAF"},
+    {"name": "Training Comd", "lat": 12.97, "lon": 77.59, "color": [0, 200, 255], "type": "IAF"},
+    # NAVY
+    {"name": "Western Navy", "lat": 18.94, "lon": 72.82, "color": [255, 255, 255], "type": "Navy"},
+    {"name": "Eastern Navy", "lat": 17.68, "lon": 83.21, "color": [255, 255, 255], "type": "Navy"},
+    {"name": "Southern Navy", "lat": 9.93, "lon": 76.26, "color": [255, 255, 255], "type": "Navy"},
+    # TRI-SERVICE
+    {"name": "Andaman Cmd (ANC)", "lat": 11.62, "lon": 92.72, "color": [0, 255, 0], "type": "Joint"},
+]
 
-# Sidebar
-with st.sidebar:
-    st.header("📡 INTEL STREAM")
-    if st.button("RELOAD SATELLITE FEED"):
-        st.rerun()
-    
+# --- UI LAYOUT ---
+st.title("🇮🇳 OFFICE OF THE CHIEF OF DEFENCE STAFF")
+st.caption(f"INTEGRATED BATTLEFIELD SURVEILLANCE SYSTEM | MODEL: {active_model}")
+
+col_map, col_feed = st.columns([3, 1])
+
+with col_map:
+    # 1. READ THREATS
     try:
         df = pd.read_csv(CSV_FILE)
-        for _, row in df.tail(6).iloc[::-1].iterrows():
-            css_class = "critical" if row['priority'] == 'High' else "report-box"
-            icon = "🚨" if row['priority'] == 'High' else "🟢"
-            st.markdown(f"""
-            <div class="{css_class}">
-                <b>{icon} {row['timestamp']} | {row['sector']}</b><br>
-                {row['report']}
-            </div>
-            """, unsafe_allow_html=True)
-    except:
-        st.error("FEED OFFLINE")
-
-# Main Map
-col1, col2 = st.columns([3, 1])
-
-with col1:
-    st.subheader("🛰️ TACTICAL OVERVIEW (J&K SECTOR)")
-    
-    if 'df' in locals():
-        map_df = extract_threat_locations(df)
+        cmd_df = pd.DataFrame(COMMANDS)
         
-        # 3D Satellite Map Layer
-        layer = pdk.Layer(
+        # Create markers for Threats (Red)
+        threats = []
+        for _, row in df.iterrows():
+            if row['priority'] == 'High':
+                threats.append({"lat": 34.5, "lon": 76.0, "color": [255, 0, 0], "size": 20000}) 
+        threat_df = pd.DataFrame(threats)
+
+        # 2. LAYERS
+        layer_border = pdk.Layer(
+            "GeoJsonLayer",
+            INDIA_GEOJSON,
+            stroked=True, filled=True,
+            get_fill_color=[0, 50, 0, 30], 
+            get_line_color=[255, 215, 0, 200], # Gold Border
+            get_line_width=3000
+        )
+
+        layer_cmds = pdk.Layer(
             "ScatterplotLayer",
-            map_df,
+            cmd_df,
             get_position='[lon, lat]',
             get_color='color',
-            get_radius='radius',
+            get_radius=10000,
             pickable=True,
         )
-
-        view_state = pdk.ViewState(
-            latitude=34.0, longitude=76.0, zoom=6.5, pitch=45
+        
+        layer_text = pdk.Layer(
+            "TextLayer",
+            cmd_df,
+            get_position='[lon, lat]',
+            get_text='name',
+            get_color=[200, 255, 200],
+            get_size=12,
+            get_alignment_baseline="'bottom'"
         )
 
-        # Render Map with Satellite Style
+        layers = [layer_border, layer_cmds, layer_text]
+        if not threat_df.empty:
+            layer_threats = pdk.Layer(
+                "ScatterplotLayer",
+                threat_df,
+                get_position='[lon, lat]',
+                get_color='color',
+                get_radius='size',
+                stroked=True, filled=True,
+                get_line_color=[255, 0, 0],
+                get_line_width=2000
+            )
+            layers.append(layer_threats)
+
+        # 3. RENDER MAP
         st.pydeck_chart(pdk.Deck(
-            map_style='mapbox://styles/mapbox/satellite-v9', # Satellite view removes political borders
-            initial_view_state=view_state,
-            layers=[layer],
-            tooltip={"text": "{info}"}
+            map_style=None, 
+            initial_view_state=pdk.ViewState(latitude=22, longitude=79, zoom=4.5, pitch=0),
+            layers=layers,
+            tooltip={"text": "{name}"}
         ))
-    else:
-        st.write("Waiting for data...")
-
-with col2:
-    st.subheader("💬 WAR ROOM")
-    
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-    if prompt := st.chat_input("Enter Orders..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            with st.spinner("Decryption in progress..."):
-                intel = get_intel_from_chanakya(prompt)
-                intel_str = "\n".join(intel) if intel else "No specific intel."
-                response = ask_commander_strategy(prompt, intel_str)
-            st.markdown(response)
         
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        st.caption("🟡 Army | 🔵 Air Force | ⚪ Navy | 🟢 Tri-Service | 🔴 Threat")
+
+    except Exception as e:
+        st.error(f"Map Error: {e}")
+
+    # CHAT INTERFACE
+    st.subheader("💬 SECURE COMMS")
+    if prompt := st.chat_input("Directives?"):
+        with st.chat_message("user"): st.write(prompt)
+        with st.chat_message("assistant"):
+            with st.spinner("Encrypting Transmission..."):
+                intel = get_intel(prompt)
+                resp = ask_cds(prompt, "\n".join(intel))
+            st.write(resp)
+
+with col_feed:
+    st.subheader("📡 LIVE INTEL")
+    if st.button("SYNC"): st.rerun()
+    try:
+        for _, row in df.tail(6).iloc[::-1].iterrows():
+            c = "critical" if row['priority'] == 'High' else "report-box"
+            st.markdown(f"<div class='{c}'><b>{row['timestamp']}</b><br>{row['report']}</div>", unsafe_allow_html=True)
+    except: st.write("Offline")
