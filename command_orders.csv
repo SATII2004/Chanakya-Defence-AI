@@ -1,6 +1,3 @@
 timestamp,id,target,order,status,reply
-06:03:09,3529,ARMY (Northern Comd),Mobilize Alpha Regiment to Sector 9 immediately.,EXECUTED,Roger HQ. Alpha Regiment moving out. ETA 20 mins.
-06:08:36,4825,NAVY (Western Fleet),"0  06:03:09  3529  ARMY (Northern Comd)  Mobilize Alpha Regiment to Sector 9 immediately.  EXECUTED  Roger HQ. Alpha Regiment moving out. ETA 20 mins..
-1  06:15:45  3530  NAVY (INS Vikrant Comd)  Deploy INS Vikrant to designated operational area off Chennai immediately. Furthermore, direct INS Visakhapatnam (SSK) to rendezvous with INS Vikrant Battle Group for enhanced maritime domain awareness and monitoring operations.  PENDING",EXECUTED,ORDER RECEIVED. Western Fleet acknowledges command. Assets rerouting as directed. STATUS: IN PROGRESS
-16:36:53,9557,NAVY (Western Fleet),Increase survillence near andaman water bodies ,EXECUTED,OK copy that commander 
-16:38:31,8618,ARMY (Western Comd),Take para sf  with you and a tank regiment with garud commandos,EXECUTED,ok copy that
+14:19:34,6145,NAVY (Western),Ins vikrant deploy near andaman island s,EXECUTED,ok sir
+14:27:16,1674,ARMY (Northern),HDBHBSFK,EXECUTED,GHJKL
