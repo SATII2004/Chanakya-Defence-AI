@@ -12,13 +12,16 @@ import random
 import plotly.graph_objects as go
 import numpy as np
 import base64
+import edge_tts  # NEW NEURAL VOICE ENGINE
+import asyncio   # REQUIRED FOR EDGE TTS
+from PIL import Image
 
 # --- 1. CONFIGURATION ---
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 st.set_page_config(
-    page_title="CDS Integrated Command (v39.0)",
+    page_title="CDS Integrated Command (v42.0)",
     page_icon="🇮🇳",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -54,7 +57,7 @@ def update_order_status(order_id, reply_msg):
         return True
     return False
 
-# --- 3. AI ENGINE ---
+# --- 3. AI & NEW VOICE ENGINE (NEURAL) ---
 valid_model_name = None
 if GEMINI_API_KEY:
     try:
@@ -66,12 +69,53 @@ if GEMINI_API_KEY:
         if not valid_model_name and my_models: valid_model_name = my_models[0]
     except: pass
 
-def generate_response(prompt, image=None, sys_prompt=""):
+async def generate_audio(text):
+    """Uses Microsoft Edge Neural TTS for a Deep Indian Male Voice."""
+    # VOICE: 'en-IN-PrabhatNeural' is the best Indian Male voice
+    # RATE: '-5%' makes it slightly slower and more deliberate
+    # PITCH: '-15Hz' makes it deeper and more authoritative
+    communicate = edge_tts.Communicate(text, "en-IN-PrabhatNeural", rate="-5%", pitch="-15Hz")
+    await communicate.save("assets/response.mp3")
+
+def text_to_speech(text):
+    """Wrapper to run the async audio generator."""
+    try:
+        # Create assets folder if missing
+        if not os.path.exists("assets"):
+            os.makedirs("assets")
+            
+        # Run Async Function
+        asyncio.run(generate_audio(text))
+        
+        # Read and Play
+        with open("assets/response.mp3", "rb") as f:
+            audio_bytes = f.read()
+            b64 = base64.b64encode(audio_bytes).decode()
+            
+        uid = int(time.time())
+        # Standard HTML5 Audio (No speed hack needed, the file itself is deep now)
+        st.markdown(f"""
+            <audio autoplay="true" id="voice-{uid}">
+                <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+            </audio>
+        """, unsafe_allow_html=True)
+    except Exception as e:
+        st.warning(f"Voice Module Error: {e}")
+
+def generate_response(prompt, image=None, sys_prompt="", speak=False):
     try:
         if not valid_model_name: raise Exception("Offline")
         model = genai.GenerativeModel(valid_model_name)
         full = f"{sys_prompt}\nUSER: {prompt}"
-        return model.generate_content([full, image] if image else full).text
+        response_text = model.generate_content([full, image] if image else full).text
+        
+        # TRIGGER VOICE IF ENABLED
+        if speak:
+            # Remove markdown stars for cleaner reading
+            clean_text = response_text.replace("*", "").replace("#", "")
+            text_to_speech(clean_text)
+            
+        return response_text
     except: return "COMMANDER: Secure line unstable. Using local analysis."
 
 def extract_pdf(f):
@@ -152,8 +196,9 @@ with c2: st.title("🇮🇳 CDS INTEGRATED DEFENCE STAFF"); st.caption("NETWORK:
 if "last_msg_count" not in st.session_state: st.session_state.last_msg_count = 0
 user_role = st.sidebar.radio("Clearance Level", ["COMMANDER (CDS)", "FIELD AGENT"])
 
-# --- AUDIO UNLOCKER BUTTON (ESSENTIAL FOR BROWSER POLICY) ---
+# VOICE TOGGLE IN SIDEBAR
 st.sidebar.divider()
+enable_voice = st.sidebar.checkbox("🗣️ JARVIS VOICE MODE", value=True)
 if st.sidebar.button("🔊 INITIALIZE AUDIO SYSTEM"):
     st.sidebar.success("AUDIO LINK ESTABLISHED")
 
@@ -191,8 +236,9 @@ if user_role == "COMMANDER (CDS)":
                 st.session_state.msgs.append({"role":"user","content":final})
                 st.chat_message("user").write(final)
                 with st.chat_message("assistant"):
-                    intel="\n".join([f"{r['service']}: {r['report']}" for _,r in load_intel().tail(5).iterrows()])
-                    res = generate_response(final, sys_prompt=f"ROLE: CDS. INTEL: {intel}. ORDERS: {load_orders().tail(3).to_string()}.")
+                    with st.spinner("Decrypting..."):
+                        intel="\n".join([f"{r['service']}: {r['report']}" for _,r in load_intel().tail(5).iterrows()])
+                        res = generate_response(final, sys_prompt=f"ROLE: CDS. INTEL: {intel}. ORDERS: {load_orders().tail(3).to_string()}. SPEAK LIKE A MILITARY COMMANDER.", speak=enable_voice)
                     st.write(res)
                 st.session_state.msgs.append({"role":"assistant","content":res})
 
@@ -223,7 +269,7 @@ if user_role == "COMMANDER (CDS)":
             f=st.file_uploader("Upload Brief", type='pdf')
             if f: 
                 txt=extract_pdf(f)
-                if q:=st.chat_input("Query Document"): st.write(generate_response(q, sys_prompt=f"DOC: {txt[:5000]}"))
+                if q:=st.chat_input("Query Document"): st.write(generate_response(q, sys_prompt=f"DOC: {txt[:5000]}", speak=enable_voice))
 
         with t5:
             st.markdown("### 🛰️ SATELLITE IMAGERY ANALYSIS")
@@ -233,7 +279,7 @@ if user_role == "COMMANDER (CDS)":
                 st.image(image, caption="TARGET LOCKED", width=400)
                 if st.button("RUN TRINETRA AI SCAN"):
                     with st.spinner("Analyzing spectral signature..."):
-                        res = generate_response("Analyze this military image. Identify assets, threats, and terrain.", image=image)
+                        res = generate_response("Analyze this military image. Identify assets, threats, and terrain.", image=image, speak=enable_voice)
                         st.success("SCAN COMPLETE")
                         st.markdown(f"<div class='alert-box threat-high'>{res}</div>", unsafe_allow_html=True)
 
@@ -247,32 +293,15 @@ if user_role == "COMMANDER (CDS)":
             last_row = df_intel.iloc[-1]
             prio = str(last_row['priority']).strip()
             
-            # --- AGGRESSIVE AUDIO INJECTION WITH VISUAL TRIGGER ---
             if current_count > st.session_state.last_msg_count:
                 if prio == "CRITICAL":
-                    # Load Sound
                     sound_url = "https://actions.google.com/sounds/v1/alarms/nuclear_alarm.ogg"
                     if os.path.exists("assets/alarm.mp3"):
                         with open("assets/alarm.mp3", "rb") as f:
                             b64 = base64.b64encode(f.read()).decode()
                             sound_url = f"data:audio/mp3;base64,{b64}"
-
-                    # Unique ID to force new audio element
                     unique_id = int(time.time())
-                    
-                    # INJECT AUDIO
-                    st.markdown(f"""
-                        <audio autoplay="true" id="audio-{unique_id}">
-                            <source src="{sound_url}" type="audio/mp3">
-                        </audio>
-                        <script>
-                            var audio = document.getElementById("audio-{unique_id}");
-                            audio.play().catch(function(error) {{
-                                console.log("Audio play failed: " + error);
-                            }});
-                        </script>
-                    """, unsafe_allow_html=True)
-                    
+                    st.markdown(f"""<audio autoplay="true" id="audio-{unique_id}"><source src="{sound_url}" type="audio/mp3"></audio><script>var audio = document.getElementById("audio-{unique_id}"); audio.play().catch(function(error) {{ console.log("Audio play failed: " + error); }});</script>""", unsafe_allow_html=True)
                     st.error("🚨 CRITICAL ALERT RECEIVED")
                 st.session_state.last_msg_count = current_count
 
