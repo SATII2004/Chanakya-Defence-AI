@@ -1,0 +1,10 @@
+streamlit
+pandas
+pydeck
+google-generativeai
+python-dotenv
+pypdf
+streamlit-mic-recorder
+plotly
+edge-tts
+Pillow
