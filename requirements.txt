@@ -8,3 +8,7 @@ streamlit-mic-recorder
 plotly
 edge-tts
 Pillow
+litellm
+sentence-transformers
+newsapi-python
+pathway
