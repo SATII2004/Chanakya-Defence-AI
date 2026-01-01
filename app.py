@@ -15,19 +15,24 @@ import base64
 import edge_tts
 import asyncio
 from PIL import Image
+import requests  # Connects to Pathway Backend
 
 # --- 1. CONFIGURATION ---
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+# CRITICAL FIX: Configure the Google AI Library explicitly
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+
 st.set_page_config(
-    page_title="C.H.A.N.A.K.Y.A. (v46.0)",
+    page_title="C.H.A.N.A.K.Y.A. (v47.0 - Live)",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. ASSETS & DATABASE ---
+# --- 2. ASSETS & DATABASE (Local Fallbacks) ---
 INTEL_FILE = "intel_feed.csv"
 ORDERS_FILE = "command_orders.csv"
 
@@ -57,19 +62,9 @@ def update_order_status(order_id, reply_msg):
         return True
     return False
 
-# --- 3. AI & VOICE ENGINE ---
-valid_model_name = None
-if GEMINI_API_KEY:
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        all_models = list(genai.list_models())
-        my_models = [m.name for m in all_models if 'generateContent' in m.supported_generation_methods]
-        for pref in ['models/gemini-1.5-flash', 'models/gemini-1.5-pro', 'models/gemini-pro']:
-            if pref in my_models: valid_model_name = pref; break
-        if not valid_model_name and my_models: valid_model_name = my_models[0]
-    except: pass
-
+# --- 3. VOICE ENGINE ---
 async def generate_audio(text):
+    # 'en-IN-PrabhatNeural' is the best for Indian Defence context
     communicate = edge_tts.Communicate(text, "en-IN-PrabhatNeural", rate="-5%", pitch="-15Hz")
     await communicate.save("assets/response.mp3")
 
@@ -87,15 +82,60 @@ def text_to_speech(text):
         """, unsafe_allow_html=True)
     except Exception as e: st.warning(f"Voice Error: {e}")
 
+# --- 4. AI ENGINE (HYBRID: PATHWAY + GEMINI) ---
 def generate_response(prompt, image=None, sys_prompt="", speak=False):
+    """
+    Routes queries to the appropriate engine:
+    - Text Queries -> Pathway Live Backend (for RAG)
+    - Image Queries -> Direct Gemini API (Computer Vision)
+    """
+    
+    # CASE A: IMAGE ANALYSIS (Uses Direct Gemini)
+    if image:
+        try:
+            if not GEMINI_API_KEY: raise Exception("Offline")
+            
+            # FIXED: Updated model to 'gemini-2.5-flash'
+            model = genai.GenerativeModel("gemini-2.5-flash")
+            full_prompt = f"{sys_prompt}\nUSER: {prompt}"
+            
+            # Pass image and text list
+            response = model.generate_content([full_prompt, image])
+            response_text = response.text
+            
+            if speak: text_to_speech(response_text.replace("*", ""))
+            return response_text
+        except Exception as e: return f"COMMANDER: Optical sensors offline. {e}"
+
+    # CASE B: TEXT/INTEL ANALYSIS (Uses Pathway Backend)
+    api_url = "http://localhost:8000/v1/pw_ai_answer"
+    
     try:
-        if not valid_model_name: raise Exception("Offline")
-        model = genai.GenerativeModel(valid_model_name)
-        full = f"{sys_prompt}\nUSER: {prompt}"
-        response_text = model.generate_content([full, image] if image else full).text
-        if speak: text_to_speech(response_text.replace("*", "").replace("#", ""))
-        return response_text
-    except: return "COMMANDER: Secure line unstable. Using local analysis."
+        # Attempt to hit the Pathway Live Engine
+        payload = {"prompt": prompt}
+        response = requests.post(api_url, json=payload, timeout=8)
+        
+        if response.status_code == 200:
+            # Parse response (handles direct string or JSON object)
+            raw = response.json()
+            answer = raw if isinstance(raw, str) else raw.get("result", str(raw))
+            
+            if speak: text_to_speech(answer.replace("*", ""))
+            return answer
+        else:
+            raise Exception(f"Pathway Status {response.status_code}")
+
+    except Exception as e:
+        # FALLBACK: If Pathway is offline, use raw Gemini
+        try:
+            if not GEMINI_API_KEY: raise Exception("Offline")
+            # FIXED: Updated fallback model to 'gemini-2.5-flash'
+            model = genai.GenerativeModel("gemini-2.5-flash")
+            fallback_resp = model.generate_content(f"{sys_prompt}\nUSER: {prompt}").text
+            if speak: text_to_speech(fallback_resp.replace("*", ""))
+            return f"[⚠️ BACKEND OFFLINE - USING FALLBACK] {fallback_resp}"
+        except:
+            return "COMMANDER: All secure lines are down. Check backend connection."
 
 def extract_pdf(f):
     try: return "".join([p.extract_text() for p in PdfReader(f).pages])
@@ -131,8 +171,9 @@ def draw_radar(df_intel):
     )
     return fig
 
-# --- 4. OSINT GENERATOR ---
+# --- 5. OSINT GENERATOR (UI ONLY - Backend handles real streams) ---
 def get_osint_feed():
+    # This simulates "Intercepted Signals" for the UI visualization
     sources = ["@BorderWatch", "@ConflictIntel", "@KashmirEye", "@DefMinIndia", "@RawIntel", "@GeoPolitix"]
     keywords = ["Troop movement", "Loud bang heard", "Smoke rising", "Convoy spotted", "Jet flyover", "Shelling reported"]
     locations = [{"loc":"Poonch","lat":33.77,"lon":74.09}, {"loc":"Galwan","lat":34.76,"lon":78.22}, {"loc":"Pathankot","lat":32.26,"lon":75.62}, {"loc":"Baramulla","lat":34.19,"lon":74.35}, {"loc":"Doklam","lat":27.29,"lon":88.90}]
@@ -150,7 +191,7 @@ def get_osint_feed():
         })
     return pd.DataFrame(feed)
 
-# --- 5. ULTRA-REALISTIC MILITARY UI CSS ---
+# --- 6. ULTRA-REALISTIC MILITARY UI CSS ---
 st.markdown("""
 <style>
     /* MAIN THEME */
@@ -274,7 +315,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 6. MAP DATA ---
+# --- 7. MAP DATA ---
 COMMANDS_DATA = [
     {"name":"Northern Comd","lat":32.93,"lon":75.14,"icon":"🛡️","color":[255,215,0]},
     {"name":"Western Comd","lat":30.73,"lon":76.78,"icon":"🛡️","color":[255,215,0]},
@@ -295,14 +336,14 @@ COMMANDS_DATA = [
 ]
 INDIA_BORDER = "https://raw.githubusercontent.com/datameet/maps/master/Country/india-composite.geojson"
 
-# --- 7. HEADER UI ---
+# --- 8. HEADER UI ---
 c1, c2 = st.columns([0.1, 0.9])
 with c1: st.image("https://upload.wikimedia.org/wikipedia/commons/2/2c/India-flag-a4.jpg", use_container_width=True)
 with c2: 
-    st.title("C.H.A.N.A.K.Y.A. DEFENCE AI")
-    st.caption("COMMAND HUB FOR ADVANCED NETWORK ANALYSIS & KINETIC YIELD ASSESSMENT")
+    st.title("C.H.A.N.A.K.Y.A. DEFENCE SUITE")
+    st.caption("PATHWAY STREAMING ENGINE: ACTIVE | DEFCON 4 | SAT-LINK: SECURE")
 
-# --- 8. MAIN LOGIC ---
+# --- 9. MAIN LOGIC ---
 if "last_msg_count" not in st.session_state: st.session_state.last_msg_count = 0
 user_role = st.sidebar.radio("ACCESS LEVEL", ["COMMANDER", "FIELD AGENT"])
 
@@ -344,14 +385,14 @@ if user_role == "COMMANDER":
             if "msgs" not in st.session_state: st.session_state.msgs = []
             for m in st.session_state.msgs: st.chat_message(m["role"]).write(m["content"])
             v = speech_to_text(key='v', start_prompt='🎙️ TALK', stop_prompt='⏹️ SEND')
-            if p:=st.chat_input("Enter Directives...") or v:
+            if p:=st.chat_input("Enter Directives (Queries Pathway Engine)...") or v:
                 final = p or v
                 st.session_state.msgs.append({"role":"user","content":final})
                 st.chat_message("user").write(final)
                 with st.chat_message("assistant"):
-                    with st.spinner("Processing..."):
-                        intel="\n".join([f"{r['service']}: {r['report']}" for _,r in load_intel().tail(5).iterrows()])
-                        res = generate_response(final, sys_prompt=f"ROLE: MILITARY AI. INTEL: {intel}. ORDERS: {load_orders().tail(3).to_string()}.", speak=enable_voice)
+                    with st.spinner("Connecting to Live RAG Engine..."):
+                        # NOW CALLS PATHWAY BACKEND
+                        res = generate_response(final, sys_prompt="ROLE: MILITARY COMMANDER.", speak=enable_voice)
                     st.write(res)
                 st.session_state.msgs.append({"role":"assistant","content":res})
 
@@ -380,7 +421,8 @@ if user_role == "COMMANDER":
             f=st.file_uploader("Upload Brief (PDF)", type='pdf')
             if f: 
                 txt=extract_pdf(f)
-                if q:=st.chat_input("Ask Veda..."): st.write(generate_response(q, sys_prompt=f"DOC: {txt[:5000]}", speak=enable_voice))
+                if q:=st.chat_input("Ask Veda..."): 
+                    st.write(generate_response(q, sys_prompt=f"DOC: {txt[:5000]}", speak=enable_voice))
 
         with t5:
             st.markdown("##### 🛰️ SATELLITE RECON")
@@ -395,10 +437,10 @@ if user_role == "COMMANDER":
         
         # --- FIXED OSINT LAYOUT ---
         with t6:
-            c_os1, c_os2 = st.columns([1.2, 1]) # Adjusted ratio for better visibility
+            c_os1, c_os2 = st.columns([1.2, 1]) 
             
             with c_os1:
-                st.markdown("##### 📡 LIVE CHATTER")
+                st.markdown("##### 📡 LIVE CHATTER STREAM")
                 if st.button("SCAN FREQUENCIES"):
                     st.session_state.osint_cache = get_osint_feed()
                 
@@ -413,12 +455,13 @@ if user_role == "COMMANDER":
                         """, unsafe_allow_html=True)
             
             with c_os2:
-                st.markdown("##### 🤖 VERIFY INTEL")
+                st.markdown("##### 🤖 VERIFY INTEL (PATHWAY)")
                 st.markdown("<div class='glass-box'>", unsafe_allow_html=True)
-                verify_txt = st.text_area("Paste Intercept / Rumor", height=120, placeholder="Paste text here to verify...")
+                st.caption("Verifies against the live Pathway News Stream")
+                verify_txt = st.text_area("Paste Intercept / Rumor", height=120)
                 if st.button("RUN TRUTH CHECK"):
-                    with st.spinner("Cross-referencing..."):
-                        check = generate_response(verify_txt, sys_prompt="You are an Intel Analyst. Verify this report. Give confidence score.", speak=enable_voice)
+                    with st.spinner("Querying Live Backend..."):
+                        check = generate_response(f"Verify this rumor based on the live news stream: {verify_txt}", speak=enable_voice)
                         st.info(check)
                 st.markdown("</div>", unsafe_allow_html=True)
 

@@ -1,125 +1,166 @@
-# 🛡️ C.H.A.N.A.K.Y.A. Defence-AI
-### **Command Hub for Advanced Network Analysis & Kinetic Yield Assessment**
-
+🛡️ C.H.A.N.A.K.Y.A. Defence-AI
+Command Hub for Advanced Network Analysis & Kinetic Yield Assessment
 ![Status](https://img.shields.io/badge/STATUS-OPERATIONAL-brightgreen?style=for-the-badge&logo=rss)
 ![Security](https://img.shields.io/badge/SECURITY-AES--256-blue?style=for-the-badge&logo=lock)
-![AI](https://img.shields.io/badge/AI-GEMINI%201.5-orange?style=for-the-badge&logo=google)
+![AI](https://img.shields.io/badge/AI-PATHWAY%20RAG-orange?style=for-the-badge&logo=python)
 ![Voice](https://img.shields.io/badge/VOICE-NEURAL%20TTS-purple?style=for-the-badge&logo=waveform)
+🧠 Overview
 
-**C.H.A.N.A.K.Y.A.** is a next-generation **Integrated Command & Control System (ICCS)** designed for modern hybrid warfare. It serves as a centralized, glass-morphic dashboard connecting the **Chief of Defence Staff (CDS)** with **Field Agents** in real-time, utilizing Generative AI for strategic advantage.
+C.H.A.N.A.K.Y.A. is a next-generation Integrated Command & Control System (ICCS) designed for modern hybrid and information warfare.
 
----
+It provides a centralized, real-time command dashboard connecting the Chief of Defence Staff (CDS) with Field Agents across Army, Navy, and Air Force units.
 
-## 🚀 Strategic Capabilities
+At its core, the system is powered by a Live Retrieval-Augmented Generation (RAG) engine built using Pathway, allowing the AI to reason over real-time battlefield intelligence streams rather than static training data.
 
-### **1. 🗺️ 3D Kinetic Battlespace**
-* **Live Asset Tracking:** Real-time visualization of all 17 Indian Command HQs (Army, Navy, Air Force) on a 3D terrain.
-* **Dual-Layer Rendering:** Utilizes PyDeck Scatterplots + Text Layers to ensure icons (🛡️, ✈️, ⚓) are visible under any condition.
-* **Threat Plotting:** Automatically plots hostile intel reports as pulsating Red Skulls on the map.
+🚀 Strategic Capabilities
+🧠 1. Live Thinking Engine (Pathway RAG)
 
-### **2. 🧠 AI Commander (Gemini 1.5 Pro)**
-* **Tactical Advisor:** Acts as a virtual Chief of Staff, analyzing complex intel situations and suggesting operational courses of action.
-* **VEDA (Vector Encrypted Document Analysis):** Instantly parses classified PDF briefs to extract logistics and threat data.
+Real-Time Context Awareness
+Unlike conventional LLMs, Chanakya continuously ingests live intel feeds.
 
-### **3. 🗣️ "Jarvis" Neural Voice**
-* **Deep Command Voice:** Integrates **Microsoft Edge TTS** (`en-IN-PrabhatNeural`) to speak responses in a deep, authoritative Indian military accent.
-* **Pitch Shift Tech:** Custom audio processing lowers pitch by `-15Hz` for a realistic "War Room" experience.
+Instant Vector Updates
+New reports are immediately embedded and indexed.
 
-### **4. 🌐 OSINT Radar**
-* **Social Listening:** Scans simulated public frequencies (Twitter/News) for keywords like "Explosion" or "Troop Movement".
-* **AI Truth Check:** A dedicated module to verify rumors and misinformation using cross-referencing algorithms.
+True Live Intelligence
+Queries like “What is the latest threat?” are answered using data from seconds ago, not historical knowledge.
 
-### **5. 👁️ Trinetra (Satellite Recon)**
-* **Computer Vision:** Analyzes uploaded drone or satellite imagery using Multimodal AI.
-* **Target Lock:** Identifies assets, terrain risks, and enemy concealment from images.
+Hybrid AI Stack
 
-### **6. 🚨 Kinetic Alerts**
-* **HTML5 Audio Injection:** Bypasses browser restrictions to force-play a "Nuclear Alarm" siren when a **CRITICAL** threat is detected.
-* **Visual Pulse:** The UI flashes red during high-DEFCON states.
+SentenceTransformers → Local, unlimited embeddings
 
----
+Google Gemini 1.5 / 2.5 Flash → Strategic reasoning
 
-## 🛠️ Technology Stack
-* **Frontend:** Python 3.10+, Streamlit (Glassmorphism UI)
-* **AI Engine:** Google Gemini 1.5 Flash
-* **Voice Engine:** Microsoft Edge TTS (Neural) + AsyncIO
-* **Mapping:** PyDeck (WebGL 3D Maps)
-* **Visualization:** Plotly (Radar Charts)
-* **Data:** Pandas & NumPy
+🗺️ 2. 3D Kinetic Battlespace
 
----
+Live Asset Visualization
+Displays all 17 Indian Command HQs (Army, Navy, Air Force).
 
-## ⚡ Installation & Setup
+3D Tactical Map
+Built using PyDeck with terrain-aware rendering.
 
-### 1. Clone the Repository
-```bash
-git clone [https://github.com/SATII2004/Chanakya-Defence-AI.git](https://github.com/SATII2004/Chanakya-Defence-AI.git)
+Threat Plotting
+High-priority hostile intel appears as pulsating red skulls on the map.
+
+🗣️ 3. “Jarvis” Neural Command Voice
+
+Military-Grade Voice Output
+
+Powered by Microsoft Edge TTS
+
+Voice: en-IN-PrabhatNeural
+
+Deep Command Tone
+
+Pitch shifted by -15Hz
+
+Designed for realistic War Room feedback
+
+👁️ 4. Trinetra – Satellite Recon Module
+
+Vision Intelligence
+
+Analyzes drone & satellite imagery
+
+Target Identification
+
+Detects terrain risks, enemy assets, and concealment
+
+Model
+
+Gemini 2.5 Flash (Vision)
+
+🌐 5. OSINT Radar
+
+Live OSINT Stream
+
+Simulated global news & intercept feeds
+
+AI Truth Verification
+
+Cross-checks rumors against live RAG knowledge base
+
+Confidence Scoring
+
+Assigns credibility levels to field reports
+
+🛠️ Technology Stack
+Layer	Technology
+Core RAG Engine	Pathway (Real-Time Data Processing)
+LLM Orchestration	LiteLLM + Google Gemini 2.5 Flash
+Vector Indexing	SentenceTransformers (Local Embeddings)
+Frontend	Streamlit (Glassmorphism UI)
+Voice Engine	Edge TTS + AsyncIO
+Visualization	PyDeck (3D Maps), Plotly (Radar)
+⚡ Installation & Setup
+1️⃣ Clone the Repository
+git clone https://github.com/SATII2004/Chanakya-Defence-AI.git
 cd Chanakya-Defence-AI
 
-```
+2️⃣ Install Dependencies
+pip install -r requirements.txt
 
-### 2. Install Dependencies
 
-```bash
-pip install streamlit pandas pydeck google-generativeai python-dotenv pypdf streamlit-mic-recorder plotly edge-tts pillow
+Required packages include:
 
-```
+pathway
 
-### 3. Configure Credentials
+litellm
 
-Create a `.env` file in the root directory and add your Google Gemini API key:
+sentence-transformers
 
-```env
+streamlit
+
+newsapi-python
+
+3️⃣ Configure Credentials
+
+Create a .env file in the root directory:
+
 GEMINI_API_KEY=your_actual_google_api_key_here
 
-```
+4️⃣ Initialize Assets
+mkdir assets live_data
 
-### 4. Initialize Assets
+🛰️ Launch Mission
+(Three-Terminal Execution Sequence)
 
-Ensure the `assets/` folder exists. The system will auto-generate voice files here.
-*(Optional: Add a custom `alarm.mp3` to this folder for local alerts)*.
+To demonstrate Live RAG capabilities, all components must run simultaneously.
 
-### 5. Launch Mission
+🧠 Terminal 1 – The Brain (Pathway Backend)
 
-```bash
+Starts the vector store and REST API.
+
+python backend.py
+
+
+Expected log:
+
+🚀 Pathway Engine Starting on 0.0.0.0:8000...
+
+👁️ Terminal 2 – The Eyes (Intel Streamer)
+
+Simulates real-time intel ingestion.
+
+python news_streamer.py
+
+🛡️ Terminal 3 – The Command Center (UI)
+
+Launches the dashboard.
+
 streamlit run app.py
 
-```
+📸 System Modules
+Module	Function
+💬 COMMS	Strategic queries to Pathway Live RAG
+⚔️ ORDERS	Issue directives to military units
+📡 RADAR	Aerial threat visualization
+📂 VEDA	PDF intelligence document analysis
+👁️ TRINETRA	Satellite & drone image analysis
+🌐 OSINT	Public sentiment & intel verification
+📜 Philosophy
 
----
+“Strategy without tactics is the slowest route to victory.
+Tactics without strategy is the noise before defeat.”
+— Sun Tzu
 
-## 📸 System Modules
-
-| Module | Function |
-| --- | --- |
-| **💬 COMMS** | Secure, encrypted voice/text link between HQ and Agents. |
-| **⚔️ C2 WING** | Issue directives to specific units (e.g., Northern Command). |
-| **📡 RADAR** | Real-time aerial threat tracking graph. |
-| **📂 VEDA** | PDF Document Analysis for mission briefs. |
-| **🌐 OSINT** | Public sentiment monitoring and fact-checking. |
-
----
-
-## 📂 Directory Structure
-
-```text
-Chanakya-Defence-AI/
-├── app.py                 # Main Mission Control System
-├── intel_feed.csv         # Database for Intel Reports
-├── command_orders.csv     # Database for Commander Orders
-├── .env                   # API Keys (GitIgnored)
-├── README.md              # Documentation
-└── assets/                # Audio and Image assets
-    ├── alarm.mp3
-    └── response.mp3       # Generated by AI voice
-
-```
-
----
-
-> *"Strategy without tactics is the slowest route to victory. Tactics without strategy is the noise before defeat."* — **Sun Tzu**
-
-
-
-**© 2025 Defence Research & Development (Concept)**
-
+© 2026 Defence Research & Development (Concept Project)
