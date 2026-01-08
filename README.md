@@ -159,6 +159,29 @@ Module	Function
 🌐 OSINT	Public sentiment & intel verification
 📜 Philosophy
 
+
+## 🏗️ System Architecture & Pathway Integration
+
+This project uses a **Live RAG (Retrieval-Augmented Generation)** architecture powered by the **Pathway Framework**.
+
+### High-Level Data Flow
+`[Live Data Source]` ➡️ `[Streamer Script]` ➡️ `[Pathway Engine]` ➡️ `[Vector Index]` ➡️ `[LLM Response]` ➡️ `[Streamlit UI]`
+
+### Core Components
+1.  **Ingestion Layer (`news_streamer.py`):**
+    * Fetches real-time defense news from **NewsAPI** and generates simulated battlefield events.
+    * Writes data to a strictly appended **JSONL stream** (`live_data/intel_stream.jsonl`).
+2.  **Streaming Engine (`backend.py`):**
+    * **Connector:** Uses `pw.io.jsonlines.read(mode="streaming")` to listen for file updates with sub-second latency.
+    * **Transformation:** Renames and cleans raw text fields on-the-fly using `table.select()`.
+    * **Indexing:** Utilizes `BruteForceKnnFactory` with `SentenceTransformers` (`all-MiniLM-L6-v2`) to create an always-up-to-date vector index.
+3.  **Inference Layer:**
+    * Queries are processed by **Google Gemini 2.5 Flash** via `LiteLLM` for strategic reasoning.
+    * The system exposes a lightweight REST API endpoint (`/v1/pw_ai_answer`) that the frontend polls.
+
+### ⚡ Achieving Real-Time Behavior
+Unlike traditional RAG systems that require batch re-indexing, Pathway's **Incremental Computation** engine treats the vector index as a dynamic table. When `news_streamer.py` appends a single line of JSON, Pathway triggers a micro-batch update, embedding only the new data and making it available for query retrieval instantly.
+
 “Strategy without tactics is the slowest route to victory.
 Tactics without strategy is the noise before defeat.”
 — Sun Tzu
